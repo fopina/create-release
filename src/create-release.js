@@ -11,6 +11,7 @@ async function run() {
 
     // Get the inputs from the workflow file: https://github.com/actions/toolkit/tree/master/packages/core#inputsoutputs
     const tagName = core.getInput('tag_name', { required: true });
+    const allowUpdate = core.getInput('allow_update', { required: false });
 
     // This removes the 'refs/tags' portion of the string, i.e. from 'refs/tags/v1.10.15' to 'v1.10.15'
     const tag = tagName.replace('refs/tags/', '');
@@ -18,10 +19,24 @@ async function run() {
     const body = core.getInput('body', { required: false });
     const draft = core.getInput('draft', { required: false }) === 'true';
     const prerelease = core.getInput('prerelease', { required: false }) === 'true';
-
-    // Create a release
-    // API Documentation: https://developer.github.com/v3/repos/releases/#create-a-release
-    // Octokit Documentation: https://octokit.github.io/rest.js/#octokit-routes-repos-create-release
+    try {
+      const releaseResponse = await github.repos.getReleaseByTag({
+        owner,
+        repo,
+        tag
+      });
+      if (releaseResponse.status === 200) {
+        if (allowUpdate) {
+          core.setOutput('id', releaseResponse.data.id);
+          core.setOutput('html_url', releaseResponse.data.html_url);
+          core.setOutput('upload_url', releaseResponse.data.upload_url);
+          return;
+        }
+        core.setFailed('Duplicate tag');
+      }
+    } catch (error) {
+      console.log('error', error);
+    }
     const createReleaseResponse = await github.repos.createRelease({
       owner,
       repo,
@@ -31,12 +46,10 @@ async function run() {
       draft,
       prerelease
     });
-
     // Get the ID, html_url, and upload URL for the created Release from the response
     const {
       data: { id: releaseId, html_url: htmlUrl, upload_url: uploadUrl }
     } = createReleaseResponse;
-
     // Set the output variables for use by other actions: https://github.com/actions/toolkit/tree/master/packages/core#inputsoutputs
     core.setOutput('id', releaseId);
     core.setOutput('html_url', htmlUrl);

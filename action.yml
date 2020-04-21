@@ -19,6 +19,9 @@ inputs:
     description: '`true` to identify the release as a prerelease. `false` to identify the release as a full release. Default: `false`'
     required: false
     default: false
+  allow_update:
+    description: 'Allow existing release to be used (matched by tag)'
+    required: false
 outputs:
   id:
     description: 'The ID of the created Release'
